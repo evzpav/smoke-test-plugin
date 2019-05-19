@@ -61,21 +61,52 @@ func usage() {
 }
 
 func readLog() {
+	log.Println("Read log running!")
 	bot := slacker.NewClient(os.Getenv("SLACK_BOT_TOKEN"))
 
-	definition := &slacker.CommandDefinition{
+	bot.Init(func() {
+		log.Println("Slack bot connected!")
+	})
+
+	bot.Err(func(err string) {
+		log.Println(err)
+	})
+
+	bot.DefaultCommand(func(request slacker.Request, response slacker.ResponseWriter) {
+		response.Reply("Command not found. Type: help.")
+	})
+
+	logs := &slacker.CommandDefinition{
 		Description: "Read logs",
-		Example:     "logs",
+		Example:     "logs app",
 		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
-			for line := range readFile("/var/log/dokku/github-users/web.00.log") {
-				log.Println(line)
-				response.Reply(line.Text)
+			param := request.Param("app")
+			if param != "" {
+				fileName := fmt.Sprintf("/var/log/dokku/%s/web.00.log", param)
+				f, err := readFile(fileName)
+				if err != nil {
+					response.Reply(err.Error())
+				} else {
+					for line := range f {
+						response.Reply(line.Text)
+					}
+				}
+
 			}
 
 		},
 	}
 
-	bot.Command("logs", definition)
+	bot.Command("logs <app>", logs)
+
+	help := &slacker.CommandDefinition{
+		Description: "help!",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			response.Reply("Type: logs appname")
+		},
+	}
+
+	bot.Help(help)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -84,12 +115,14 @@ func readLog() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 }
 
-func readFile(fileName string) chan *tail.Line {
+func readFile(fileName string) (chan *tail.Line, error) {
 	t, err := tail.TailFile(fileName, tail.Config{Follow: true, MustExist: true, ReOpen: true})
 	if err != nil {
 		fmt.Print(err)
+		return nil, err
 	}
-	return t.Lines
+	return t.Lines, nil
 }
