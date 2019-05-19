@@ -61,7 +61,7 @@ func usage() {
 }
 
 func readLog() {
-	bot := slacker.NewClient("xoxb-639148950581-639164488389-XRxeBiNJtyNHQWtRCMvJD3og")
+	bot := slacker.NewClient(os.Getenv("SLACK_BOT_TOKEN"))
 
 	definition := &slacker.CommandDefinition{
 		Description: "Read logs",
