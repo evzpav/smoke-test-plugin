@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/hpcloud/tail"
 	columnize "github.com/ryanuber/columnize"
+	"github.com/shomali11/slacker"
 )
 
 const (
@@ -28,6 +32,8 @@ func main() {
 
 	cmd := flag.Arg(0)
 	switch cmd {
+	case "smoke-test-plugin:log":
+		readLog()
 	case "smoke-test-plugin:help":
 		usage()
 	case "help":
@@ -52,4 +58,38 @@ func usage() {
 	content := strings.Split(helpContent, "\n")[1:]
 	fmt.Println(helpHeader)
 	fmt.Println(columnize.Format(content, config))
+}
+
+func readLog() {
+	bot := slacker.NewClient("xoxb-639148950581-639164488389-XRxeBiNJtyNHQWtRCMvJD3og")
+
+	definition := &slacker.CommandDefinition{
+		Description: "Read logs",
+		Example:     "logs",
+		Handler: func(request slacker.Request, response slacker.ResponseWriter) {
+			for line := range readFile("/var/log/dokku/github-users/web.00.log") {
+				log.Println(line)
+				response.Reply(line.Text)
+			}
+
+		},
+	}
+
+	bot.Command("logs", definition)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := bot.Listen(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func readFile(fileName string) chan *tail.Line {
+	t, err := tail.TailFile(fileName, tail.Config{Follow: true, MustExist: true, ReOpen: true})
+	if err != nil {
+		fmt.Print(err)
+	}
+	return t.Lines
 }
