@@ -1,7 +1,7 @@
 Smoke test plugin for Dokku test suite
 ======================================
 
-Project: https://github.com/progrium/dokku
+Project: https://github.com/dokku/dokku
 
 Requirements
 ------------
